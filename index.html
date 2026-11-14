@@ -732,7 +732,7 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
   /*PRODUCTS_START*/var EMBEDDED_PRODUCTS = null;/*PRODUCTS_END*/
 
   /* Pengrajin dan nomor WhatsApp yang tertanam di file ini. Diisi otomatis oleh "Simpan jadi file HTML". Jangan diedit manual. */
-  /*SELLERS_START*/var EMBEDDED_SELLERS = null;/*SELLERS_END*/
+  /*SELLERS_START*/var EMBEDDED_SELLERS = {"savedAt": 1794640000000, "admin": "", "artisans": [{"id": "a1", "name": "Kelompok Anyam Seulawah", "region": "Aceh Besar", "craft": "Rotan", "story": "Mengerjakan anyaman rotan untuk keranjang, tas, dan lampu, dari pemotongan bahan sampai pemolesan akhir.", "wa": "6282339291119"}, {"id": "a2", "name": "Sanggar Pandan Tamiang", "region": "Aceh Tamiang", "craft": "Pandan duri", "story": "Menganyam helai pandan duri menjadi tikar, tas, dan perlengkapan rumah tangga.", "wa": "6282286393063"}, {"id": "a3", "name": "Bengkel Kriya Pidie", "region": "Pidie", "craft": "Kayu ukir", "story": "Mengukir kotak dan papan hias, serta menyediakan papan kayu kering untuk pengrajin lain.", "wa": "6282169850926"}, {"id": "a4", "name": "Rumpun Bambu Selatan", "region": "Aceh Selatan", "craft": "Bambu", "story": "Mengolah bambu menjadi bilah anyam dan perlengkapan makan yang ringan.", "wa": "628980036699"}]};/*SELLERS_END*/
 
   /* ---------- Data contoh ---------- */
   var MATERIALS = [
@@ -754,8 +754,15 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
   /* ---------- Data pengrajin dan nomor WhatsApp (bisa diedit) ---------- */
   var ADMIN_WA = '';
   var DEFAULT_ARTISANS = JSON.parse(JSON.stringify(ARTISANS));
-  DEFAULT_ARTISANS.forEach(function (a) { a.wa = ''; });
-  ARTISANS.forEach(function (a) { a.wa = ''; });
+  /* Nomor WhatsApp tiap kelompok pengrajin (format 62...). */
+  var SELLER_NUMBERS = {
+    a1: '6282339291119', /* Kelompok Anyam Seulawah */
+    a2: '6282286393063', /* Sanggar Pandan Tamiang */
+    a3: '6282169850926', /* Bengkel Kriya Pidie */
+    a4: '628980036699'   /* Rumpun Bambu Selatan */
+  };
+  DEFAULT_ARTISANS.forEach(function (a) { a.wa = SELLER_NUMBERS[a.id] || ''; });
+  ARTISANS.forEach(function (a) { a.wa = SELLER_NUMBERS[a.id] || ''; });
   var SELLERS_KEY = 'pintukriya.sellers.v1';
   var sellersSavedAt = 0;
 
@@ -1190,6 +1197,17 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
     $('#dTotal').textContent = rupiah(p.price * detailQty);
     $('#dMinus').disabled = detailQty <= p.min;
     $('#dPlus').disabled = detailQty >= 99;
+    /* Tombol WhatsApp langsung ke penjual, pesan ikut jumlah yang dipilih. */
+    var a = artisanOf(p), ask = $('#dAsk'), num = sellerWA(a.id);
+    if (num) {
+      ask.href = waLink(num,
+        '*Pesanan Peuneujeut Indatu*\n' +
+        'Halo ' + a.name + ', saya ingin membeli:\n' +
+        '1. ' + p.name + '\n' +
+        '   ' + detailQty + ' ' + p.unit + ' x ' + rupiah(p.price) + ' = ' + rupiah(p.price * detailQty) + '\n\n' +
+        'Apakah masih tersedia? Mohon info ongkos kirim dan cara pembayaran. Terima kasih.');
+      ask.hidden = false;
+    } else { ask.removeAttribute('href'); ask.hidden = true; }
   }
   function openDetail(id) {
     var p = byId(id); if (!p) return;
@@ -1212,11 +1230,9 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
     $('#dMin').textContent = p.type === 'bahan'
       ? 'Minimal pemesanan ' + p.min + ' ' + p.unit + '. Harga bahan baku per ' + p.unit + '.'
       : 'Dibuat per pesanan. Waktu pengerjaan disepakati dengan pengrajin.';
-    var ask = $('#dAsk'), num = sellerWA(a.id);
-    if (num) {
-      ask.href = waLink(num, 'Halo ' + a.name + ', saya tertarik dengan "' + p.name + '" (' + rupiah(p.price) + ' per ' + p.unit + ') di Peuneujeut Indatu. Apakah masih tersedia?');
-      ask.hidden = false;
-    } else { ask.removeAttribute('href'); ask.hidden = true; }
+    var ask = $('#dAsk');
+    ask.textContent = 'Beli langsung lewat WhatsApp';
+    ask.classList.remove('btn-ghost'); ask.classList.add('btn-primary');
     updateDetailQty();
     openLayer($('#detailLayer'));
   }
@@ -1387,6 +1403,14 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
     renderOrder(lastOrder);
     cart = {}; saveCart(); updateBadge();
     showView('Done');
+    /* Buka WhatsApp penjual otomatis dengan isi pesanan sesuai keranjang. */
+    var first = lastOrder.groups.filter(function (g) { return g.href; })[0];
+    if (first) {
+      var w = null;
+      try { w = window.open(first.href, '_blank', 'noopener'); } catch (err) { w = null; }
+      toast(w ? 'WhatsApp dibuka. Tekan kirim di WhatsApp untuk menyelesaikan pesanan.'
+              : 'Tekan tombol WhatsApp hijau di bawah untuk mengirim pesanan.', 4500);
+    }
   });
 
   function copyText(text, btn) {
