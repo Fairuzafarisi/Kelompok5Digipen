@@ -507,7 +507,6 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
     <strong>Peuneujeut Indatu</strong>
     <p>Prototipe proyek akhir mata kuliah Digital Entrepreneurship, Kelompok 5.</p>
     <p id="sampleNote">Produk, harga, dan profil pengrajin pada halaman ini adalah data contoh.</p>
-    <p>Pesanan dikirim ke penjual lewat WhatsApp. Pembayaran dan pengiriman disepakati langsung antara pembeli dan penjual.</p>
   </div>
 </footer>
 
@@ -683,13 +682,12 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
             <label for="fCatatan">Catatan <span class="opt">(boleh dikosongkan)</span></label>
             <textarea id="fCatatan" class="input" name="catatan" maxlength="200"></textarea>
           </div>
-          <p class="warn">Pesanan dikirim ke penjual lewat WhatsApp. Pembayaran dan ongkos kirim disepakati langsung dengan penjual.</p>
         </div>
         <div class="drawer-foot">
           <div class="line-total"><span>Subtotal</span><span id="subtotal2">Rp 0</span></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button type="button" class="btn btn-ghost" id="backCart">Kembali</button>
-            <button type="submit" class="btn btn-primary" style="flex:1">Lanjut kirim lewat WhatsApp</button>
+            <button type="submit" class="btn btn-primary" style="flex:1">Pesan Lewat WhatsApp</button>
           </div>
         </div>
       </form>
@@ -1372,7 +1370,8 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
     var many = o.groups.length > 1;
     $('#orderHint').textContent = many
       ? 'Pesanan Anda berasal dari ' + o.groups.length + ' penjual. Kirim satu pesan ke tiap penjual. Penjual akan mengonfirmasi stok, ongkos kirim, dan cara pembayaran lewat WhatsApp.'
-      : 'Tekan tombol WhatsApp di bawah. Pesan sudah terisi, tinggal dikirim. Penjual akan mengonfirmasi stok, ongkos kirim, dan cara pembayaran.';
+      : '';
+    $('#orderHint').hidden = !many;
     $('#orderGroups').innerHTML = o.groups.map(function (g, i) {
       var action = g.href
         ? '<a class="btn btn-primary" data-wa="' + i + '" href="' + g.href + '" target="_blank" rel="noopener">Kirim ke ' + esc(g.artisan.name) + ' lewat WhatsApp</a>'
