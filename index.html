@@ -272,6 +272,12 @@ footer{border-top:1px solid var(--line);margin-top:24px}
   max-width:calc(100% - 32px);text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.3);
 }
 .art img{width:100%;height:100%;object-fit:cover;display:block}
+.art{position:relative}
+.art .fgimg{position:relative;object-fit:contain}
+.art .bgimg{position:absolute;left:-24px;top:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(24px) saturate(1.1);opacity:.85}
+.art.fly-art{position:fixed;z-index:70;margin:0;pointer-events:none;aspect-ratio:auto;min-height:0}
+.fly-btn{position:fixed;z-index:71;margin:0;padding:0;overflow:hidden;pointer-events:none;display:block;min-height:0}
+.fly-btn span{position:absolute;inset:0;display:grid;place-items:center;padding:0 10px;text-align:center;white-space:nowrap}
 .art.ph{display:grid;place-content:center;justify-items:center;gap:6px;color:var(--muted);text-align:center}
 .art.ph svg{width:44px;height:44px;opacity:.7}
 .ph-text{font-size:.82rem;font-weight:600}
@@ -939,6 +945,12 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
     if (src) return '<img src="' + src + '" alt="Foto ' + esc(p.name) + '" loading="lazy" decoding="async">';
     return PH_ICON + '<span class="ph-text">Foto menyusul</span>';
   }
+  function detailArtInner(p) {
+    var src = photoOf(p);
+    if (src) return '<img class="bgimg" src="' + src + '" alt="" aria-hidden="true" decoding="async">' +
+      '<img class="fgimg" src="' + src + '" alt="Foto ' + esc(p.name) + '" decoding="async">';
+    return PH_ICON + '<span class="ph-text">Foto menyusul</span>';
+  }
   function artHTML(p) { return '<div class="' + artClass(p) + '">' + artInner(p) + '</div>'; }
 
   /* ---------- Util ---------- */
@@ -1131,7 +1143,7 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
   grid.addEventListener('click', function (e) {
     var b = e.target.closest('[data-act]'); if (!b) return;
     var p = byId(b.dataset.id); if (!p) return;
-    if (b.dataset.act === 'detail') openDetail(p.id);
+    if (b.dataset.act === 'detail') openDetail(p.id, b.closest('.card'));
     if (b.dataset.act === 'photo') choosePhoto(p.id);
     if (b.dataset.act === 'edit') openProductForm(p.id);
     if (b.dataset.act === 'del') {
@@ -1188,6 +1200,7 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
     if (f) f.focus();
   }
   function closeLayer(layer) {
+    if (layer.id === 'detailLayer' && openAnimCleanup) openAnimCleanup();
     layer.hidden = true;
     if (!activeLayer()) document.body.classList.remove('lock');
     var back = lastFocus[layer.id];
@@ -1231,8 +1244,74 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
       ask.hidden = false;
     } else { ask.removeAttribute('href'); ask.hidden = true; }
   }
-  function openDetail(id) {
+  var openAnimCleanup = null;
+  function runOpenAnim(src) {
+    var layer = $('#detailLayer'), modal = layer.querySelector('.modal');
+    var dArt = $('#dArt'), add = $('#dAdd'), ask = $('#dAsk');
+    var ta = dArt.getBoundingClientRect(), tadd = add.getBoundingClientRect();
+    var mr = modal.getBoundingClientRect();
+    var hasAsk = !ask.hidden, task = hasAsk ? ask.getBoundingClientRect() : null;
+    var D = 560, ease = 'cubic-bezier(.22,.8,.24,1)';
+    var flies = [], anims = [];
+    function box(r) { return { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }; }
+
+    var fa = document.createElement('div');
+    fa.className = dArt.className + ' fly-art';
+    fa.innerHTML = dArt.innerHTML;
+    var endRadius = ta.width > mr.width * 0.9 ? '14px 14px 0 0' : '14px 0 0 14px';
+    function mkBtn(label1, label2) {
+      var b = document.createElement('div');
+      b.className = 'btn btn-primary fly-btn';
+      var s1 = document.createElement('span'); s1.textContent = label1;
+      var s2 = document.createElement('span'); s2.textContent = label2;
+      b.appendChild(s1); b.appendChild(s2);
+      return b;
+    }
+    var fbB = hasAsk ? mkBtn('Beli', ask.textContent) : null;
+    var fbA = mkBtn('Beli', add.textContent);
+    [fa, fbB, fbA].forEach(function (n) { if (n) { document.body.appendChild(n); flies.push(n); } });
+
+    dArt.style.visibility = 'hidden';
+    add.style.visibility = 'hidden';
+    if (hasAsk) ask.style.visibility = 'hidden';
+
+    var done = false;
+    function cleanup() {
+      if (done) return; done = true;
+      anims.forEach(function (a) { try { a.cancel(); } catch (e) { /* abaikan */ } });
+      flies.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+      dArt.style.visibility = ''; add.style.visibility = ''; ask.style.visibility = '';
+      openAnimCleanup = null;
+    }
+    openAnimCleanup = cleanup;
+
+    var opt = { duration: D, easing: ease, fill: 'both' };
+    anims.push(layer.animate([{ backgroundColor: 'rgba(10,6,5,0)' }, { backgroundColor: 'rgba(10,6,5,.6)' }], { duration: 300, easing: 'ease-out' }));
+    anims.push(modal.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' }));
+    $$('.modal-info > *', modal).forEach(function (el, i) {
+      anims.push(el.animate([{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }],
+        { duration: 380, delay: 160 + i * 35, easing: ease, fill: 'backwards' }));
+    });
+    anims.push(fa.animate([
+      Object.assign(box(src.art), { borderRadius: '0px' }),
+      Object.assign(box(ta), { borderRadius: endRadius })
+    ], opt));
+    function flyBtn(el, from, to, textA, textB) {
+      anims.push(el.animate([Object.assign(box(from)), Object.assign(box(to))], opt));
+      anims.push(el.children[0].animate([{ opacity: 1 }, { opacity: 0, offset: textA }, { opacity: 0 }], opt));
+      anims.push(el.children[1].animate([{ opacity: 0 }, { opacity: 0, offset: textB }, { opacity: 1 }], opt));
+    }
+    if (hasAsk) flyBtn(fbB, src.btn, task, 0.2, 0.35);
+    flyBtn(fbA, src.btn, tadd, 0.45, 0.4);
+    setTimeout(cleanup, D + 120);
+  }
+  function openDetail(id, card) {
     var p = byId(id); if (!p) return;
+    var src = null;
+    if (card && !reduceMotion && Element.prototype.animate) {
+      var sa = card.querySelector('.art'), sb = card.querySelector('.actions .btn');
+      if (sa && sb) src = { art: sa.getBoundingClientRect(), btn: sb.getBoundingClientRect() };
+    }
     var a = artisanOf(p);
     detailId = id; detailQty = p.min;
     fillDetailPhoto(p);
@@ -1257,6 +1336,7 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
     ask.classList.remove('btn-ghost'); ask.classList.add('btn-primary');
     updateDetailQty();
     openLayer($('#detailLayer'));
+    if (src) runOpenAnim(src);
   }
   $('#dMinus').addEventListener('click', function () {
     var p = byId(detailId); if (!p) return;
@@ -1580,7 +1660,7 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
   function fillDetailPhoto(p) {
     var art = $('#dArt');
     art.className = artClass(p);
-    art.innerHTML = artInner(p);
+    art.innerHTML = detailArtInner(p);
     $('#dPhotoUp').textContent = photoOf(p) ? 'Ganti foto' : 'Unggah foto';
     $('#dPhotoDel').disabled = !photoOf(p);
   }
