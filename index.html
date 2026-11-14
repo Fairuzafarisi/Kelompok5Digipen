@@ -175,13 +175,16 @@ button,input,select,textarea{font:inherit;color:inherit}
 .pill.jadi{background:var(--tile);color:var(--ink)}
 .meta .mat{color:var(--muted);font-weight:600}
 .card h3{font-size:1.1rem;font-weight:700}
+.name-btn{display:block;width:100%;padding:0;margin:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.name-btn:hover{text-decoration:underline;text-underline-offset:3px}
+.name-btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
 .by{color:var(--muted);font-size:.88rem}
 .price{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-top:2px}
 .price strong{font-family:var(--font-display);font-size:1.25rem;font-variant-numeric:tabular-nums}
 .price span{color:var(--muted);font-size:.9rem}
 .sub{color:var(--muted);font-size:.85rem;min-height:1.3em}
 .actions{display:flex;gap:8px;margin-top:auto;padding-top:10px}
-.actions .btn{flex:1;min-width:0;padding-inline:10px}
+.actions .btn{flex:1;min-width:0;padding-inline:10px;width:100%}
 .empty{padding:36px 16px;text-align:center;border:1.5px dashed var(--line);border-radius:var(--radius);color:var(--muted);display:grid;gap:12px;justify-items:center}
 .empty strong{color:var(--ink);font-family:var(--font-display);font-size:1.2rem}
 
@@ -302,6 +305,17 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
 #pfTitle{padding-right:44px}
 #productForm .field{margin-bottom:2px}
 @media (max-width:560px){.form-grid{grid-template-columns:1fr}}
+@keyframes badge-bump{0%{transform:scale(1)}35%{transform:scale(1.7)}70%{transform:scale(.9)}100%{transform:scale(1)}}
+@keyframes cart-ring{0%{box-shadow:0 0 0 0 rgba(214,170,70,.85)}100%{box-shadow:0 0 0 16px rgba(214,170,70,0)}}
+.count.bump{animation:badge-bump .55s ease-out}
+#cartBtn.ring{animation:cart-ring .8s ease-out}
+.toast.toast-cart{
+  display:flex;align-items:center;gap:10px;background:var(--brand);color:var(--on-brand);
+  padding:14px 22px;font-size:1rem;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);
+  animation:toast-pop .35s cubic-bezier(.2,.9,.3,1.3);
+}
+.toast.toast-cart .tick{display:inline-grid;place-items:center;flex:none;width:26px;height:26px;border-radius:50%;background:#fff;color:var(--brand);font-weight:800}
+@keyframes toast-pop{0%{opacity:0;transform:translate(-50%,16px) scale(.9)}100%{opacity:1;transform:translate(-50%,0) scale(1)}}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{transition:none !important;animation:none !important}
 }
@@ -950,11 +964,22 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
   var toastTimer = null;
   function toast(msg, ms) {
     var t = $('#toast');
+    t.className = 'toast';
     t.textContent = msg; t.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.hidden = true; }, ms || 2200);
   }
 
+  function cartToast(msg) {
+    var t = $('#toast');
+    t.textContent = '';
+    var tick = document.createElement('span'); tick.className = 'tick'; tick.textContent = '\u2713';
+    var txt = document.createElement('span'); txt.textContent = msg;
+    t.appendChild(tick); t.appendChild(txt);
+    t.className = 'toast toast-cart'; t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; t.className = 'toast'; }, 3200);
+  }
   /* ---------- Tema ---------- */
   var root = document.documentElement;
   var themeBtn = $('#themeBtn');
@@ -1050,13 +1075,12 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
       (photoOf(p) ? '<button type="button" class="btn" data-act="photo-del" data-id="' + p.id + '">Hapus</button>' : '') + '</div></div>' +
       '<div class="card-body">' +
         '<div class="meta"><span class="pill ' + p.type + '">' + (isRaw ? 'Bahan baku' : 'Produk jadi') + '</span><span class="mat">' + matLabel(p.material) + '</span></div>' +
-        '<h3>' + esc(p.name) + '</h3>' +
+        '<h3><button type="button" class="name-btn" data-act="detail" data-id="' + p.id + '">' + esc(p.name) + '</button></h3>' +
         '<p class="by">' + esc(a.name) + ', ' + esc(a.region) + '</p>' +
         '<div class="price"><strong>' + rupiah(p.price) + '</strong><span>per ' + esc(p.unit) + '</span></div>' +
         '<p class="sub">' + (isRaw ? 'Minimal pesan ' + p.min + ' ' + esc(p.unit) : esc(p.spec)) + '</p>' +
         '<div class="actions">' +
-          '<button type="button" class="btn btn-ghost" data-act="detail" data-id="' + p.id + '">Detail</button>' +
-          '<button type="button" class="btn btn-primary" data-act="add" data-id="' + p.id + '">Tambah</button>' +
+          '<button type="button" class="btn btn-primary" data-act="detail" data-id="' + p.id + '">Beli</button>' +
         '</div>' +
         '<div class="edit-only card-edit">' +
           '<button type="button" class="btn btn-ghost" data-act="edit" data-id="' + p.id + '">Edit produk</button>' +
@@ -1241,11 +1265,43 @@ body.edit .card.drop{outline:3px dashed var(--focus);outline-offset:-3px}
   $('#dPlus').addEventListener('click', function () {
     detailQty = Math.min(99, detailQty + 1); updateDetailQty();
   });
-  $('#dAdd').addEventListener('click', function () {
-    var p = byId(detailId); if (!p) return;
-    addToCart(p.id, detailQty);
+  var flying = false;
+  function finishAdd(p, qty) {
+    addToCart(p.id, qty);
     closeLayer($('#detailLayer'));
-    toast('Ditambahkan: ' + detailQty + ' ' + p.unit + ' ' + p.name);
+    flying = false;
+    var badge = $('#cartCount'), btn = $('#cartBtn');
+    badge.classList.remove('bump'); btn.classList.remove('ring');
+    void badge.offsetWidth;
+    badge.classList.add('bump'); btn.classList.add('ring');
+    setTimeout(function () { badge.classList.remove('bump'); btn.classList.remove('ring'); }, 900);
+    cartToast(qty + ' ' + p.unit + ' ' + p.name + ' masuk keranjang');
+  }
+  $('#dAdd').addEventListener('click', function () {
+    var p = byId(detailId); if (!p || flying) return;
+    var qty = detailQty;
+    var layer = $('#detailLayer'), modal = layer.querySelector('.modal');
+    var target = $('#cartBtn').getBoundingClientRect();
+    var from = modal.getBoundingClientRect();
+    if (reduceMotion || !modal.animate || !target.width) { finishAdd(p, qty); return; }
+    flying = true;
+    var dx = (target.left + target.width / 2) - (from.left + from.width / 2);
+    var dy = (target.top + target.height / 2) - (from.top + from.height / 2);
+    modal.style.transformOrigin = 'center center';
+    modal.style.pointerEvents = 'none';
+    layer.animate([{ backgroundColor: 'rgba(10,6,5,.6)' }, { backgroundColor: 'rgba(10,6,5,0)' }],
+      { duration: 700, easing: 'ease-in', fill: 'forwards' });
+    var anim = modal.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1, borderRadius: '16px', offset: 0 },
+      { transform: 'translate(0,0) scale(.92)', opacity: 1, offset: .15 },
+      { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.04)', opacity: .35, borderRadius: '50%', offset: 1 }
+    ], { duration: 700, easing: 'cubic-bezier(.55,.05,.75,.4)', fill: 'forwards' });
+    anim.onfinish = function () {
+      layer.getAnimations().forEach(function (a) { a.cancel(); });
+      anim.cancel();
+      modal.style.pointerEvents = '';
+      finishAdd(p, qty);
+    };
   });
   $('#dArtisanBtn').addEventListener('click', function (e) {
     var id = e.currentTarget.dataset.artisan;
